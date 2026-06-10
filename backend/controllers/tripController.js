@@ -1,3 +1,7 @@
+const {
+  getWeatherForDestination,
+} = require("../services/weatherService");
+
 const Trip = require("../models/Trip");
 const asyncHandler = require("../middleware/asyncHandler");
 
@@ -68,6 +72,7 @@ const updateTrip = asyncHandler(async (req, res) => {
 
   trip.destination = req.body.destination;
   trip.country = req.body.country;
+  trip.countryCode = req.body.countryCode;
   trip.startDate = req.body.startDate;
   trip.endDate = req.body.endDate;
   trip.notes = req.body.notes ?? "";
@@ -107,10 +112,38 @@ const deleteTrip = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/trips/:id/weather
+ * Retrieve a saved trip and combine it with current weather.
+ */
+const getTripWeather = asyncHandler(async (req, res) => {
+  const trip = await Trip.findById(req.params.id);
+
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found.");
+  }
+
+  const weather = await getWeatherForDestination({
+    destination: trip.destination,
+    countryCode: trip.countryCode,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Trip and current weather retrieved successfully.",
+    data: {
+      trip,
+      weather,
+    },
+  });
+});
+
 module.exports = {
   createTrip,
   getTrips,
   getTripById,
+  getTripWeather,
   updateTrip,
   deleteTrip,
 };
