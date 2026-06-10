@@ -3,17 +3,23 @@ const cors = require("cors");
 require("dotenv").config();
 
 const connectDatabase = require("./config/db");
+const tripRoutes = require("./routes/tripRoutes");
+
+const {
+  notFound,
+  errorHandler,
+} = require("./middleware/errorMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// It will allow the React frontend to call this API
+// Allow requests from the frontend.
 app.use(cors());
 
-// Parse incoming JSON request bodies
+// Parse JSON request bodies.
 app.use(express.json());
 
-// API versioning helps future changes remain organized
+// Health check endpoint.
 app.get("/api/v1/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -22,9 +28,13 @@ app.get("/api/v1/health", (req, res) => {
   });
 });
 
-/**
- * Gotta make sure we connect to MongoDB before accepting HTTP requests
- */
+// Trip API routes.
+app.use("/api/v1/trips", tripRoutes);
+
+// These must be placed after all valid routes.
+app.use(notFound);
+app.use(errorHandler);
+
 const startServer = async () => {
   await connectDatabase();
 
