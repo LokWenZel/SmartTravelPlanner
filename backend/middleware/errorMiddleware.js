@@ -1,5 +1,5 @@
 /**
- * Handles requests to routes that do not exist
+ * Handles requests to routes that do not exist.
  */
 const notFound = (req, res, next) => {
   res.status(404);
@@ -12,20 +12,20 @@ const notFound = (req, res, next) => {
 };
 
 /**
- * Converts application and database errors into consistent JSON responses
+ * Converts application and database errors into consistent JSON responses.
  */
 const errorHandler = (err, req, res, next) => {
-  // Let Express finish handling the error if a response has already started
   if (res.headersSent) {
     return next(err);
   }
 
   let statusCode =
-    res.statusCode >= 400 ? res.statusCode : 500;
+    err.statusCode ||
+    (res.statusCode >= 400 ? res.statusCode : 500);
 
-  let message = err.message || "An unexpected server error occurred.";
+  let message =
+    err.message || "An unexpected server error occurred.";
 
-  // Handle Mongoose schema validation errors
   if (err.name === "ValidationError") {
     statusCode = 400;
 
@@ -34,7 +34,6 @@ const errorHandler = (err, req, res, next) => {
       .join(" ");
   }
 
-  // Handle invalid MongoDB document IDs
   if (err.name === "CastError" && err.path === "_id") {
     statusCode = 400;
     message = "The provided trip ID is invalid.";
@@ -43,6 +42,11 @@ const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
+
+    ...(err.details && {
+      details: err.details,
+    }),
+
     ...(process.env.NODE_ENV !== "production" && {
       stack: err.stack,
     }),

@@ -18,6 +18,14 @@ const tripSchema = new mongoose.Schema(
       maxlength: [100, "Country cannot exceed 100 characters."],
     },
 
+    countryCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      minlength: [2, "Country code must contain exactly 2 characters."],
+      maxlength: [2, "Country code must contain exactly 2 characters."],
+    },
+
     startDate: {
       type: Date,
       required: [true, "Start date is required."],
@@ -66,7 +74,7 @@ const tripSchema = new mongoose.Schema(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 module.exports = mongoose.model("Trip", tripSchema);
