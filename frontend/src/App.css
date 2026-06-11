@@ -268,3 +268,23 @@ button:disabled {
 .link-button:hover {
   text-decoration: underline;
 }
+
+.section-tools {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.section-tools label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.section-tools input {
+  width: 90px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
+}

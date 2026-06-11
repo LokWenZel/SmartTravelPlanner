@@ -3,6 +3,8 @@ const { getWeatherForDestination } = require("../services/weatherService");
 const Trip = require("../models/Trip");
 const asyncHandler = require("../middleware/asyncHandler");
 
+const { convertCurrency } = require("../services/currencyService");
+
 /**
  * POST /api/v1/trips
  * Create a new trip
@@ -154,11 +156,48 @@ const getTripWeather = asyncHandler(async (req, res) => {
   });
 });
 
+const getTripCurrency = asyncHandler(async (req, res) => {
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
+
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found.");
+  }
+
+  const targetCurrency = req.query.to;
+
+  if (!targetCurrency) {
+    res.status(400);
+    throw new Error(
+      "Target currency query parameter is required. Example: ?to=JPY",
+    );
+  }
+
+  const currency = await convertCurrency({
+    fromCurrency: trip.currency || "MYR",
+    toCurrency: targetCurrency,
+    amount: trip.budget || 0,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Trip budget converted successfully.",
+    data: {
+      trip,
+      currency,
+    },
+  });
+});
+
 module.exports = {
   createTrip,
   getTrips,
   getTripById,
   getTripWeather,
+  getTripCurrency,
   updateTrip,
   deleteTrip,
 };
