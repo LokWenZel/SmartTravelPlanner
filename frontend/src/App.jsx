@@ -2,13 +2,27 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 import {
+  getCurrentUser,
+  loginUser,
+  registerUser,
+} from "./services/authApi";
+
+import {
   createTrip,
   deleteTrip,
   getTripWeather,
   getTrips,
 } from "./services/tripApi";
 
-const initialFormData = {
+const TOKEN_STORAGE_KEY = "smartTravelPlannerToken";
+
+const initialAuthForm = {
+  name: "",
+  email: "",
+  password: "",
+};
+
+const initialTripForm = {
   destination: "",
   country: "",
   countryCode: "",
@@ -21,20 +35,41 @@ const initialFormData = {
 };
 
 function App() {
-  const [formData, setFormData] = useState(initialFormData);
+  const [authMode, setAuthMode] = useState("login");
+  const [authForm, setAuthForm] = useState(initialAuthForm);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [token, setToken] = useState(
+    localStorage.getItem(TOKEN_STORAGE_KEY) || ""
+  );
+
+  const [formData, setFormData] = useState(initialTripForm);
   const [trips, setTrips] = useState([]);
   const [selectedTripWeather, setSelectedTripWeather] = useState(null);
+
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [weatherLoadingTripId, setWeatherLoadingTripId] = useState(null);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const loadTrips = async () => {
+  const isAuthenticated = Boolean(token && currentUser);
+
+  const clearMessages = () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const loadTrips = async (activeToken = token) => {
+    if (!activeToken) {
+      return;
+    }
+
     try {
       setLoading(true);
       setErrorMessage("");
 
-      const response = await getTrips();
+      const response = await getTrips(activeToken);
       setTrips(response.data);
     } catch (error) {
       setErrorMessage(error.message);
@@ -43,11 +78,38 @@ function App() {
     }
   };
 
+  const loadCurrentUser = async (activeToken) => {
+    try {
+      setAuthLoading(true);
+
+      const response = await getCurrentUser(activeToken);
+      setCurrentUser(response.data.user);
+      await loadTrips(activeToken);
+    } catch {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setToken("");
+      setCurrentUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadTrips();
+    if (token) {
+      loadCurrentUser(token);
+    }
   }, []);
 
-  const handleInputChange = (event) => {
+  const handleAuthInputChange = (event) => {
+    const { name, value } = event.target;
+
+    setAuthForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleTripInputChange = (event) => {
     const { name, value } = event.target;
 
     setFormData((currentFormData) => ({
@@ -56,12 +118,57 @@ function App() {
     }));
   };
 
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      clearMessages();
+      setAuthLoading(true);
+
+      const response =
+        authMode === "register"
+          ? await registerUser(authForm)
+          : await loginUser({
+              email: authForm.email,
+              password: authForm.password,
+            });
+
+      const receivedToken = response.data.token;
+      const receivedUser = response.data.user;
+
+      localStorage.setItem(TOKEN_STORAGE_KEY, receivedToken);
+      setToken(receivedToken);
+      setCurrentUser(receivedUser);
+      setAuthForm(initialAuthForm);
+      setSuccessMessage(
+        authMode === "register"
+          ? "Account registered successfully."
+          : "Login successful."
+      );
+
+      await loadTrips(receivedToken);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setToken("");
+    setCurrentUser(null);
+    setTrips([]);
+    setSelectedTripWeather(null);
+    setFormData(initialTripForm);
+    setSuccessMessage("You have logged out.");
+  };
+
   const handleCreateTrip = async (event) => {
     event.preventDefault();
 
     try {
-      setErrorMessage("");
-      setSuccessMessage("");
+      clearMessages();
 
       const tripData = {
         destination: formData.destination,
@@ -78,11 +185,11 @@ function App() {
         currency: formData.currency,
       };
 
-      await createTrip(tripData);
+      await createTrip(tripData, token);
 
-      setFormData(initialFormData);
+      setFormData(initialTripForm);
       setSuccessMessage("Trip created successfully.");
-      await loadTrips();
+      await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -98,14 +205,13 @@ function App() {
     }
 
     try {
-      setErrorMessage("");
-      setSuccessMessage("");
+      clearMessages();
 
-      await deleteTrip(tripId);
+      await deleteTrip(tripId, token);
 
       setSuccessMessage("Trip deleted successfully.");
       setSelectedTripWeather(null);
-      await loadTrips();
+      await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
     }
@@ -113,11 +219,10 @@ function App() {
 
   const handleViewWeather = async (tripId) => {
     try {
-      setErrorMessage("");
-      setSuccessMessage("");
+      clearMessages();
       setWeatherLoadingTripId(tripId);
 
-      const response = await getTripWeather(tripId);
+      const response = await getTripWeather(tripId, token);
       setSelectedTripWeather(response.data);
     } catch (error) {
       setErrorMessage(error.message);
@@ -125,6 +230,16 @@ function App() {
       setWeatherLoadingTripId(null);
     }
   };
+
+  if (authLoading && token && !currentUser) {
+    return (
+      <main className="app-container">
+        <section className="card">
+          <p>Checking login session...</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="app-container">
@@ -137,6 +252,17 @@ function App() {
             trip with real-time weather data from OpenWeather.
           </p>
         </div>
+
+        {isAuthenticated && (
+          <div className="user-panel">
+            <p>
+              Logged in as <strong>{currentUser.name}</strong>
+            </p>
+            <button type="button" className="secondary-button" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        )}
       </section>
 
       {errorMessage && (
@@ -147,232 +273,306 @@ function App() {
         <div className="alert alert-success">{successMessage}</div>
       )}
 
-      <section className="layout-grid">
-        <form className="card trip-form" onSubmit={handleCreateTrip}>
-          <h2>Add a new trip</h2>
+      {!isAuthenticated ? (
+        <section className="auth-wrapper">
+          <form className="card auth-card" onSubmit={handleAuthSubmit}>
+            <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
 
-          <label>
-            Destination
-            <input
-              type="text"
-              name="destination"
-              value={formData.destination}
-              onChange={handleInputChange}
-              placeholder="George Town"
-              required
-            />
-          </label>
+            {authMode === "register" && (
+              <label>
+                Name
+                <input
+                  type="text"
+                  name="name"
+                  value={authForm.name}
+                  onChange={handleAuthInputChange}
+                  placeholder="Lok Wen Zel"
+                  required
+                />
+              </label>
+            )}
 
-          <label>
-            Country
-            <input
-              type="text"
-              name="country"
-              value={formData.country}
-              onChange={handleInputChange}
-              placeholder="Malaysia"
-              required
-            />
-          </label>
-
-          <label>
-            Country Code
-            <input
-              type="text"
-              name="countryCode"
-              value={formData.countryCode}
-              onChange={handleInputChange}
-              placeholder="MY"
-              maxLength="2"
-            />
-          </label>
-
-          <div className="two-column">
             <label>
-              Start Date
+              Email
               <input
-                type="date"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleInputChange}
+                type="email"
+                name="email"
+                value={authForm.email}
+                onChange={handleAuthInputChange}
+                placeholder="lok@example.com"
                 required
               />
             </label>
 
             <label>
-              End Date
+              Password
               <input
-                type="date"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleInputChange}
+                type="password"
+                name="password"
+                value={authForm.password}
+                onChange={handleAuthInputChange}
+                placeholder="Minimum 6 characters"
+                minLength="6"
                 required
               />
             </label>
-          </div>
 
-          <label>
-            Notes
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Visit heritage attractions and try local food."
-              rows="4"
-            />
-          </label>
-
-          <label>
-            Preferences
-            <input
-              type="text"
-              name="preferences"
-              value={formData.preferences}
-              onChange={handleInputChange}
-              placeholder="food, culture, museums"
-            />
-          </label>
-
-          <div className="two-column">
-            <label>
-              Budget
-              <input
-                type="number"
-                name="budget"
-                value={formData.budget}
-                onChange={handleInputChange}
-                min="0"
-                placeholder="1200"
-              />
-            </label>
-
-            <label>
-              Currency
-              <input
-                type="text"
-                name="currency"
-                value={formData.currency}
-                onChange={handleInputChange}
-                maxLength="3"
-              />
-            </label>
-          </div>
-
-          <button type="submit" className="primary-button">
-            Create Trip
-          </button>
-        </form>
-
-        <section className="card">
-          <div className="section-heading">
-            <h2>Saved trips</h2>
-            <button type="button" onClick={loadTrips} className="secondary-button">
-              Refresh
+            <button type="submit" className="primary-button" disabled={authLoading}>
+              {authLoading
+                ? "Please wait..."
+                : authMode === "register"
+                ? "Register"
+                : "Login"}
             </button>
-          </div>
 
-          {loading ? (
-            <p>Loading trips...</p>
-          ) : trips.length === 0 ? (
-            <p>No trips found. Create your first trip using the form.</p>
-          ) : (
-            <div className="trip-list">
-              {trips.map((trip) => (
-                <article key={trip._id} className="trip-card">
-                  <div>
-                    <h3>{trip.destination}</h3>
-                    <p>
-                      {trip.country}
-                      {trip.countryCode ? ` (${trip.countryCode})` : ""}
-                    </p>
-                    <p>
-                      {new Date(trip.startDate).toLocaleDateString()} -{" "}
-                      {new Date(trip.endDate).toLocaleDateString()}
-                    </p>
-                    <p>{trip.notes || "No notes added."}</p>
-                  </div>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                clearMessages();
+                setAuthMode(authMode === "register" ? "login" : "register");
+              }}
+            >
+              {authMode === "register"
+                ? "Already have an account? Login"
+                : "No account yet? Register"}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <>
+          <section className="layout-grid">
+            <form className="card trip-form" onSubmit={handleCreateTrip}>
+              <h2>Add a new trip</h2>
 
-                  <div className="trip-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => handleViewWeather(trip._id)}
-                      disabled={weatherLoadingTripId === trip._id}
-                    >
-                      {weatherLoadingTripId === trip._id
-                        ? "Loading weather..."
-                        : "View Weather"}
-                    </button>
+              <label>
+                Destination
+                <input
+                  type="text"
+                  name="destination"
+                  value={formData.destination}
+                  onChange={handleTripInputChange}
+                  placeholder="George Town"
+                  required
+                />
+              </label>
 
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => handleDeleteTrip(trip._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+              <label>
+                Country
+                <input
+                  type="text"
+                  name="country"
+                  value={formData.country}
+                  onChange={handleTripInputChange}
+                  placeholder="Malaysia"
+                  required
+                />
+              </label>
+
+              <label>
+                Country Code
+                <input
+                  type="text"
+                  name="countryCode"
+                  value={formData.countryCode}
+                  onChange={handleTripInputChange}
+                  placeholder="MY"
+                  maxLength="2"
+                />
+              </label>
+
+              <div className="two-column">
+                <label>
+                  Start Date
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={formData.startDate}
+                    onChange={handleTripInputChange}
+                    required
+                  />
+                </label>
+
+                <label>
+                  End Date
+                  <input
+                    type="date"
+                    name="endDate"
+                    value={formData.endDate}
+                    onChange={handleTripInputChange}
+                    required
+                  />
+                </label>
+              </div>
+
+              <label>
+                Notes
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleTripInputChange}
+                  placeholder="Visit heritage attractions and try local food."
+                  rows="4"
+                />
+              </label>
+
+              <label>
+                Preferences
+                <input
+                  type="text"
+                  name="preferences"
+                  value={formData.preferences}
+                  onChange={handleTripInputChange}
+                  placeholder="food, culture, museums"
+                />
+              </label>
+
+              <div className="two-column">
+                <label>
+                  Budget
+                  <input
+                    type="number"
+                    name="budget"
+                    value={formData.budget}
+                    onChange={handleTripInputChange}
+                    min="0"
+                    placeholder="1200"
+                  />
+                </label>
+
+                <label>
+                  Currency
+                  <input
+                    type="text"
+                    name="currency"
+                    value={formData.currency}
+                    onChange={handleTripInputChange}
+                    maxLength="3"
+                  />
+                </label>
+              </div>
+
+              <button type="submit" className="primary-button">
+                Create Trip
+              </button>
+            </form>
+
+            <section className="card">
+              <div className="section-heading">
+                <h2>Saved trips</h2>
+                <button
+                  type="button"
+                  onClick={() => loadTrips(token)}
+                  className="secondary-button"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {loading ? (
+                <p>Loading trips...</p>
+              ) : trips.length === 0 ? (
+                <p>No trips found. Create your first trip using the form.</p>
+              ) : (
+                <div className="trip-list">
+                  {trips.map((trip) => (
+                    <article key={trip._id} className="trip-card">
+                      <div>
+                        <h3>{trip.destination}</h3>
+                        <p>
+                          {trip.country}
+                          {trip.countryCode ? ` (${trip.countryCode})` : ""}
+                        </p>
+                        <p>
+                          {new Date(trip.startDate).toLocaleDateString()} -{" "}
+                          {new Date(trip.endDate).toLocaleDateString()}
+                        </p>
+                        <p>{trip.notes || "No notes added."}</p>
+                      </div>
+
+                      <div className="trip-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => handleViewWeather(trip._id)}
+                          disabled={weatherLoadingTripId === trip._id}
+                        >
+                          {weatherLoadingTripId === trip._id
+                            ? "Loading weather..."
+                            : "View Weather"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={() => handleDeleteTrip(trip._id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
+
+          {selectedTripWeather && (
+            <section className="card weather-section">
+              <h2>Combined Trip + Weather Result</h2>
+
+              <div className="weather-grid">
+                <div>
+                  <h3>Trip Information</h3>
+                  <p>
+                    <strong>Destination:</strong>{" "}
+                    {selectedTripWeather.trip.destination}
+                  </p>
+                  <p>
+                    <strong>Country:</strong> {selectedTripWeather.trip.country}
+                  </p>
+                  <p>
+                    <strong>Notes:</strong>{" "}
+                    {selectedTripWeather.trip.notes || "No notes added."}
+                  </p>
+                </div>
+
+                <div>
+                  <h3>Current Weather</h3>
+                  <p>
+                    <strong>Location:</strong>{" "}
+                    {selectedTripWeather.weather.location.name},{" "}
+                    {selectedTripWeather.weather.location.countryCode}
+                  </p>
+                  <p>
+                    <strong>Condition:</strong>{" "}
+                    {selectedTripWeather.weather.current.description}
+                  </p>
+                  <p>
+                    <strong>Temperature:</strong>{" "}
+                    {selectedTripWeather.weather.current.temperatureCelsius}°C
+                  </p>
+                  <p>
+                    <strong>Feels like:</strong>{" "}
+                    {selectedTripWeather.weather.current.feelsLikeCelsius}°C
+                  </p>
+                  <p>
+                    <strong>Humidity:</strong>{" "}
+                    {selectedTripWeather.weather.current.humidityPercent}%
+                  </p>
+                  <p>
+                    <strong>Wind Speed:</strong>{" "}
+                    {
+                      selectedTripWeather.weather.current
+                        .windSpeedMetresPerSecond
+                    }{" "}
+                    m/s
+                  </p>
+                </div>
+              </div>
+            </section>
           )}
-        </section>
-      </section>
-
-      {selectedTripWeather && (
-        <section className="card weather-section">
-          <h2>Combined Trip + Weather Result</h2>
-
-          <div className="weather-grid">
-            <div>
-              <h3>Trip Information</h3>
-              <p>
-                <strong>Destination:</strong>{" "}
-                {selectedTripWeather.trip.destination}
-              </p>
-              <p>
-                <strong>Country:</strong> {selectedTripWeather.trip.country}
-              </p>
-              <p>
-                <strong>Notes:</strong>{" "}
-                {selectedTripWeather.trip.notes || "No notes added."}
-              </p>
-            </div>
-
-            <div>
-              <h3>Current Weather</h3>
-              <p>
-                <strong>Location:</strong>{" "}
-                {selectedTripWeather.weather.location.name},{" "}
-                {selectedTripWeather.weather.location.countryCode}
-              </p>
-              <p>
-                <strong>Condition:</strong>{" "}
-                {selectedTripWeather.weather.current.description}
-              </p>
-              <p>
-                <strong>Temperature:</strong>{" "}
-                {selectedTripWeather.weather.current.temperatureCelsius}°C
-              </p>
-              <p>
-                <strong>Feels like:</strong>{" "}
-                {selectedTripWeather.weather.current.feelsLikeCelsius}°C
-              </p>
-              <p>
-                <strong>Humidity:</strong>{" "}
-                {selectedTripWeather.weather.current.humidityPercent}%
-              </p>
-              <p>
-                <strong>Wind Speed:</strong>{" "}
-                {
-                  selectedTripWeather.weather.current
-                    .windSpeedMetresPerSecond
-                }{" "}
-                m/s
-              </p>
-            </div>
-          </div>
-        </section>
+        </>
       )}
     </main>
   );
