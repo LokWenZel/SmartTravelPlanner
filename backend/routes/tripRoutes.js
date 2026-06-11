@@ -9,12 +9,25 @@ const {
   deleteTrip,
 } = require("../controllers/tripController");
 
+const {
+  protect,
+} = require("../middleware/authMiddleware");
+
 const router = express.Router();
 
-router.route("/").post(createTrip).get(getTrips);
+router.use(protect);
+
+router
+  .route("/")
+  .post(createTrip)
+  .get(getTrips);
 
 router.get("/:id/weather", getTripWeather);
 
-router.route("/:id").get(getTripById).put(updateTrip).delete(deleteTrip);
+router
+  .route("/:id")
+  .get(getTripById)
+  .put(updateTrip)
+  .delete(deleteTrip);
 
 module.exports = router;

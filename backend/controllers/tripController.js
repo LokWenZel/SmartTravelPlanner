@@ -1,6 +1,4 @@
-const {
-  getWeatherForDestination,
-} = require("../services/weatherService");
+const { getWeatherForDestination } = require("../services/weatherService");
 
 const Trip = require("../models/Trip");
 const asyncHandler = require("../middleware/asyncHandler");
@@ -10,7 +8,10 @@ const asyncHandler = require("../middleware/asyncHandler");
  * Create a new trip
  */
 const createTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.create(req.body);
+  const trip = await Trip.create({
+    ...req.body,
+    user: req.user._id,
+  });
 
   res.status(201).json({
     success: true,
@@ -24,7 +25,9 @@ const createTrip = asyncHandler(async (req, res) => {
  * Retrieve all trips
  */
 const getTrips = asyncHandler(async (req, res) => {
-  const trips = await Trip.find().sort({
+  const trips = await Trip.find({
+    user: req.user._id,
+  }).sort({
     createdAt: -1,
   });
 
@@ -40,7 +43,10 @@ const getTrips = asyncHandler(async (req, res) => {
  * Retrieve one trip using its MongoDB ID
  */
 const getTripById = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id);
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
   if (!trip) {
     res.status(404);
@@ -58,7 +64,10 @@ const getTripById = asyncHandler(async (req, res) => {
  * Replace the editable information of an existing trip with new data
  */
 const updateTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id);
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
   if (!trip) {
     res.status(404);
@@ -94,7 +103,10 @@ const updateTrip = asyncHandler(async (req, res) => {
  * Delete an existing trip.
  */
 const deleteTrip = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id);
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
   if (!trip) {
     res.status(404);
@@ -117,7 +129,10 @@ const deleteTrip = asyncHandler(async (req, res) => {
  * Retrieve a saved trip and combine it with current weather.
  */
 const getTripWeather = asyncHandler(async (req, res) => {
-  const trip = await Trip.findById(req.params.id);
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
   if (!trip) {
     res.status(404);
