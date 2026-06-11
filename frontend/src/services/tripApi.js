@@ -11,32 +11,48 @@ const handleResponse = async (response) => {
   return data;
 };
 
-export const getTrips = async () => {
-  const response = await fetch(`${API_BASE_URL}/trips`);
+const getAuthHeaders = (token) => {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+export const getTrips = async (token) => {
+  const response = await fetch(`${API_BASE_URL}/trips`, {
+    headers: getAuthHeaders(token),
+  });
+
   return handleResponse(response);
 };
 
-export const createTrip = async (tripData) => {
+export const createTrip = async (tripData, token) => {
   const response = await fetch(`${API_BASE_URL}/trips`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(tripData),
   });
 
   return handleResponse(response);
 };
 
-export const deleteTrip = async (tripId) => {
+export const deleteTrip = async (tripId, token) => {
   const response = await fetch(`${API_BASE_URL}/trips/${tripId}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   return handleResponse(response);
 };
 
-export const getTripWeather = async (tripId) => {
-  const response = await fetch(`${API_BASE_URL}/trips/${tripId}/weather`);
+export const getTripWeather = async (tripId, token) => {
+  const response = await fetch(`${API_BASE_URL}/trips/${tripId}/weather`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
   return handleResponse(response);
 };
