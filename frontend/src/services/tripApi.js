@@ -59,7 +59,9 @@ export const getTripWeather = async (tripId, token) => {
 
 export const getTripCurrency = async (tripId, targetCurrency, token) => {
   const response = await fetch(
-    `${API_BASE_URL}/trips/${tripId}/currency?to=${targetCurrency}`,
+    `${API_BASE_URL}/trips/${tripId}/currency?to=${encodeURIComponent(
+      targetCurrency,
+    )}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,

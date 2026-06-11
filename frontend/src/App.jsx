@@ -245,6 +245,9 @@ function App() {
       setCurrencyLoadingTripId(tripId);
 
       const response = await getTripCurrency(tripId, targetCurrency, token);
+
+      console.log("Currency response:", response.data);
+
       setSelectedTripCurrency(response.data);
     } catch (error) {
       setErrorMessage(error.message);
@@ -573,6 +576,7 @@ function App() {
                             ? "Loading weather..."
                             : "View Weather"}
                         </button>
+
                         <button
                           type="button"
                           className="secondary-button"
@@ -660,6 +664,48 @@ function App() {
                         .windSpeedMetresPerSecond
                     }{" "}
                     m/s
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {selectedTripCurrency && (
+            <section className="card weather-section">
+              <h2>Combined Trip + Currency Result</h2>
+
+              <div className="weather-grid">
+                <div>
+                  <h3>Trip Budget</h3>
+                  <p>
+                    <strong>Destination:</strong>{" "}
+                    {selectedTripCurrency.trip.destination}
+                  </p>
+                  <p>
+                    <strong>Original Budget:</strong>{" "}
+                    {selectedTripCurrency.currency.originalAmount}{" "}
+                    {selectedTripCurrency.currency.from}
+                  </p>
+                </div>
+
+                <div>
+                  <h3>Converted Budget</h3>
+                  <p>
+                    <strong>Target Currency:</strong>{" "}
+                    {selectedTripCurrency.currency.to}
+                  </p>
+                  <p>
+                    <strong>Exchange Rate:</strong>{" "}
+                    {selectedTripCurrency.currency.conversionRate}
+                  </p>
+                  <p>
+                    <strong>Converted Amount:</strong>{" "}
+                    {selectedTripCurrency.currency.convertedAmount}{" "}
+                    {selectedTripCurrency.currency.to}
+                  </p>
+                  <p>
+                    <strong>Last Updated:</strong>{" "}
+                    {selectedTripCurrency.currency.lastUpdatedUtc || "N/A"}
                   </p>
                 </div>
               </div>
