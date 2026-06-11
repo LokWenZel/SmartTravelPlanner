@@ -1,3 +1,4 @@
+const authRoutes = require("./routes/authRoutes");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -5,10 +6,7 @@ require("dotenv").config();
 const connectDatabase = require("./config/db");
 const tripRoutes = require("./routes/tripRoutes");
 
-const {
-  notFound,
-  errorHandler,
-} = require("./middleware/errorMiddleware");
+const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -27,6 +25,9 @@ app.get("/api/v1/health", (req, res) => {
     database: "connected",
   });
 });
+
+// Auth API routes.
+app.use("/api/v1/auth", authRoutes);
 
 // Trip API routes.
 app.use("/api/v1/trips", tripRoutes);
