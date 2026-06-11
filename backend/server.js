@@ -2,22 +2,22 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const swaggerUi = require("swagger-ui-express");
 require("dotenv").config();
 
 const connectDatabase = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const tripRoutes = require("./routes/tripRoutes");
+const swaggerDocument = require("./config/swagger");
 
-const {
-  notFound,
-  errorHandler,
-} = require("./middleware/errorMiddleware");
+const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
+  process.env.BACKEND_URL || "http://localhost:5000",
 ];
 
 const corsOptions = {
@@ -51,13 +51,16 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     success: false,
-    message:
-      "Too many authentication attempts. Please try again later.",
+    message: "Too many authentication attempts. Please try again later.",
   },
 });
 
 // Add secure HTTP response headers.
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 
 // Allow only approved frontend origins.
 app.use(cors(corsOptions));
@@ -76,6 +79,12 @@ app.get("/api/v1/health", (req, res) => {
     database: "connected",
   });
 });
+
+app.get("/api/v1/openapi.json", (req, res) => {
+  res.status(200).json(swaggerDocument);
+});
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Auth API routes have stricter rate limiting.
 app.use("/api/v1/auth", authLimiter, authRoutes);
