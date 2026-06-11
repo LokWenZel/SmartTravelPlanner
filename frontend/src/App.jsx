@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-import {
-  getCurrentUser,
-  loginUser,
-  registerUser,
-} from "./services/authApi";
+import { getCurrentUser, loginUser, registerUser } from "./services/authApi";
 
 import {
   createTrip,
   deleteTrip,
+  getTripCurrency,
   getTripWeather,
   getTrips,
 } from "./services/tripApi";
@@ -39,16 +36,19 @@ function App() {
   const [authForm, setAuthForm] = useState(initialAuthForm);
   const [currentUser, setCurrentUser] = useState(null);
   const [token, setToken] = useState(
-    localStorage.getItem(TOKEN_STORAGE_KEY) || ""
+    localStorage.getItem(TOKEN_STORAGE_KEY) || "",
   );
 
   const [formData, setFormData] = useState(initialTripForm);
   const [trips, setTrips] = useState([]);
   const [selectedTripWeather, setSelectedTripWeather] = useState(null);
+  const [selectedTripCurrency, setSelectedTripCurrency] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [weatherLoadingTripId, setWeatherLoadingTripId] = useState(null);
+  const [currencyLoadingTripId, setCurrencyLoadingTripId] = useState(null);
+  const [targetCurrency, setTargetCurrency] = useState("JPY");
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -143,7 +143,7 @@ function App() {
       setSuccessMessage(
         authMode === "register"
           ? "Account registered successfully."
-          : "Login successful."
+          : "Login successful.",
       );
 
       await loadTrips(receivedToken);
@@ -160,6 +160,7 @@ function App() {
     setCurrentUser(null);
     setTrips([]);
     setSelectedTripWeather(null);
+    setSelectedTripCurrency(null);
     setFormData(initialTripForm);
     setSuccessMessage("You have logged out.");
   };
@@ -197,7 +198,7 @@ function App() {
 
   const handleDeleteTrip = async (tripId) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this trip?"
+      "Are you sure you want to delete this trip?",
     );
 
     if (!confirmed) {
@@ -211,6 +212,7 @@ function App() {
 
       setSuccessMessage("Trip deleted successfully.");
       setSelectedTripWeather(null);
+      setSelectedTripCurrency(null);
       await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
@@ -228,6 +230,20 @@ function App() {
       setErrorMessage(error.message);
     } finally {
       setWeatherLoadingTripId(null);
+    }
+  };
+
+  const handleViewCurrency = async (tripId) => {
+    try {
+      clearMessages();
+      setCurrencyLoadingTripId(tripId);
+
+      const response = await getTripCurrency(tripId, targetCurrency, token);
+      setSelectedTripCurrency(response.data);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setCurrencyLoadingTripId(null);
     }
   };
 
@@ -258,16 +274,18 @@ function App() {
             <p>
               Logged in as <strong>{currentUser.name}</strong>
             </p>
-            <button type="button" className="secondary-button" onClick={handleLogout}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleLogout}
+            >
               Logout
             </button>
           </div>
         )}
       </section>
 
-      {errorMessage && (
-        <div className="alert alert-error">{errorMessage}</div>
-      )}
+      {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
 
       {successMessage && (
         <div className="alert alert-success">{successMessage}</div>
@@ -317,12 +335,16 @@ function App() {
               />
             </label>
 
-            <button type="submit" className="primary-button" disabled={authLoading}>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={authLoading}
+            >
               {authLoading
                 ? "Please wait..."
                 : authMode === "register"
-                ? "Register"
-                : "Login"}
+                  ? "Register"
+                  : "Login"}
             </button>
 
             <button
@@ -460,13 +482,29 @@ function App() {
             <section className="card">
               <div className="section-heading">
                 <h2>Saved trips</h2>
-                <button
-                  type="button"
-                  onClick={() => loadTrips(token)}
-                  className="secondary-button"
-                >
-                  Refresh
-                </button>
+
+                <div className="section-tools">
+                  <label>
+                    Convert to
+                    <input
+                      type="text"
+                      value={targetCurrency}
+                      onChange={(event) =>
+                        setTargetCurrency(event.target.value.toUpperCase())
+                      }
+                      maxLength="3"
+                      placeholder="JPY"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => loadTrips(token)}
+                    className="secondary-button"
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               {loading ? (
@@ -500,6 +538,16 @@ function App() {
                           {weatherLoadingTripId === trip._id
                             ? "Loading weather..."
                             : "View Weather"}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => handleViewCurrency(trip._id)}
+                          disabled={currencyLoadingTripId === trip._id}
+                        >
+                          {currencyLoadingTripId === trip._id
+                            ? "Converting..."
+                            : "Convert Budget"}
                         </button>
 
                         <button
@@ -567,6 +615,48 @@ function App() {
                         .windSpeedMetresPerSecond
                     }{" "}
                     m/s
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {selectedTripCurrency && (
+            <section className="card weather-section">
+              <h2>Combined Trip + Currency Result</h2>
+
+              <div className="weather-grid">
+                <div>
+                  <h3>Trip Budget</h3>
+                  <p>
+                    <strong>Destination:</strong>{" "}
+                    {selectedTripCurrency.trip.destination}
+                  </p>
+                  <p>
+                    <strong>Original Budget:</strong>{" "}
+                    {selectedTripCurrency.currency.originalAmount}{" "}
+                    {selectedTripCurrency.currency.from}
+                  </p>
+                </div>
+
+                <div>
+                  <h3>Converted Budget</h3>
+                  <p>
+                    <strong>Target Currency:</strong>{" "}
+                    {selectedTripCurrency.currency.to}
+                  </p>
+                  <p>
+                    <strong>Exchange Rate:</strong>{" "}
+                    {selectedTripCurrency.currency.conversionRate}
+                  </p>
+                  <p>
+                    <strong>Converted Amount:</strong>{" "}
+                    {selectedTripCurrency.currency.convertedAmount}{" "}
+                    {selectedTripCurrency.currency.to}
+                  </p>
+                  <p>
+                    <strong>Last Updated:</strong>{" "}
+                    {selectedTripCurrency.currency.lastUpdatedUtc || "N/A"}
                   </p>
                 </div>
               </div>

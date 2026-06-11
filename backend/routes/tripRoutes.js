@@ -5,6 +5,7 @@ const {
   getTrips,
   getTripById,
   getTripWeather,
+  getTripCurrency,
   updateTrip,
   deleteTrip,
 } = require("../controllers/tripController");
@@ -23,6 +24,7 @@ router
   .get(getTrips);
 
 router.get("/:id/weather", getTripWeather);
+router.get("/:id/currency", getTripCurrency);
 
 router
   .route("/:id")
