@@ -288,3 +288,55 @@ button:disabled {
   border-radius: 12px;
   padding: 10px 12px;
 }
+
+.section-tools select {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: white;
+}
+
+.places-summary {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 18px;
+  background: #f8fafc;
+}
+
+.places-summary p {
+  margin: 6px 0;
+}
+
+.places-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.place-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.place-card h3 {
+  margin-top: 0;
+}
+
+.place-card p {
+  line-height: 1.5;
+}
+
+.external-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.external-link:hover {
+  text-decoration: underline;
+}
