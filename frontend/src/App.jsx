@@ -7,6 +7,7 @@ import {
   createTrip,
   deleteTrip,
   getTripCurrency,
+  getTripPlaces,
   getTripWeather,
   getTrips,
 } from "./services/tripApi";
@@ -43,12 +44,15 @@ function App() {
   const [trips, setTrips] = useState([]);
   const [selectedTripWeather, setSelectedTripWeather] = useState(null);
   const [selectedTripCurrency, setSelectedTripCurrency] = useState(null);
+  const [selectedTripPlaces, setSelectedTripPlaces] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [weatherLoadingTripId, setWeatherLoadingTripId] = useState(null);
   const [currencyLoadingTripId, setCurrencyLoadingTripId] = useState(null);
+  const [placesLoadingTripId, setPlacesLoadingTripId] = useState(null);
   const [targetCurrency, setTargetCurrency] = useState("JPY");
+  const [placeCategory, setPlaceCategory] = useState("attractions");
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -161,6 +165,7 @@ function App() {
     setTrips([]);
     setSelectedTripWeather(null);
     setSelectedTripCurrency(null);
+    setSelectedTripPlaces(null);
     setFormData(initialTripForm);
     setSuccessMessage("You have logged out.");
   };
@@ -213,6 +218,7 @@ function App() {
       setSuccessMessage("Trip deleted successfully.");
       setSelectedTripWeather(null);
       setSelectedTripCurrency(null);
+      setSelectedTripPlaces(null);
       await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
@@ -247,6 +253,20 @@ function App() {
     }
   };
 
+  const handleViewPlaces = async (tripId) => {
+    try {
+      clearMessages();
+      setPlacesLoadingTripId(tripId);
+
+      const response = await getTripPlaces(tripId, placeCategory, token);
+      setSelectedTripPlaces(response.data);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setPlacesLoadingTripId(null);
+    }
+  };
+
   if (authLoading && token && !currentUser) {
     return (
       <main className="app-container">
@@ -262,7 +282,7 @@ function App() {
       <section className="hero-section">
         <div>
           <p className="eyebrow">Smart Travel Planner</p>
-          <h1>Plan trips with saved notes and live weather</h1>
+          <h1>Plan trips with Smart Travel Planner</h1>
           <p>
             Create travel records, store them in MongoDB, and combine each saved
             trip with real-time weather data from OpenWeather.
@@ -497,6 +517,20 @@ function App() {
                     />
                   </label>
 
+                  <label>
+                    Places
+                    <select
+                      value={placeCategory}
+                      onChange={(event) => setPlaceCategory(event.target.value)}
+                    >
+                      <option value="attractions">Attractions</option>
+                      <option value="restaurants">Restaurants</option>
+                      <option value="cafes">Cafes</option>
+                      <option value="museums">Museums</option>
+                      <option value="hotels">Hotels</option>
+                    </select>
+                  </label>
+
                   <button
                     type="button"
                     onClick={() => loadTrips(token)}
@@ -548,6 +582,17 @@ function App() {
                           {currencyLoadingTripId === trip._id
                             ? "Converting..."
                             : "Convert Budget"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => handleViewPlaces(trip._id)}
+                          disabled={placesLoadingTripId === trip._id}
+                        >
+                          {placesLoadingTripId === trip._id
+                            ? "Finding places..."
+                            : "Find Nearby Attractions"}
                         </button>
 
                         <button
@@ -621,45 +666,64 @@ function App() {
             </section>
           )}
 
-          {selectedTripCurrency && (
+          {selectedTripPlaces && (
             <section className="card weather-section">
-              <h2>Combined Trip + Currency Result</h2>
+              <h2>Combined Trip + Places Result</h2>
 
-              <div className="weather-grid">
-                <div>
-                  <h3>Trip Budget</h3>
-                  <p>
-                    <strong>Destination:</strong>{" "}
-                    {selectedTripCurrency.trip.destination}
-                  </p>
-                  <p>
-                    <strong>Original Budget:</strong>{" "}
-                    {selectedTripCurrency.currency.originalAmount}{" "}
-                    {selectedTripCurrency.currency.from}
-                  </p>
-                </div>
-
-                <div>
-                  <h3>Converted Budget</h3>
-                  <p>
-                    <strong>Target Currency:</strong>{" "}
-                    {selectedTripCurrency.currency.to}
-                  </p>
-                  <p>
-                    <strong>Exchange Rate:</strong>{" "}
-                    {selectedTripCurrency.currency.conversionRate}
-                  </p>
-                  <p>
-                    <strong>Converted Amount:</strong>{" "}
-                    {selectedTripCurrency.currency.convertedAmount}{" "}
-                    {selectedTripCurrency.currency.to}
-                  </p>
-                  <p>
-                    <strong>Last Updated:</strong>{" "}
-                    {selectedTripCurrency.currency.lastUpdatedUtc || "N/A"}
-                  </p>
-                </div>
+              <div className="places-summary">
+                <p>
+                  <strong>Destination:</strong>{" "}
+                  {selectedTripPlaces.trip.destination},{" "}
+                  {selectedTripPlaces.trip.country}
+                </p>
+                <p>
+                  <strong>Search Query:</strong>{" "}
+                  {selectedTripPlaces.places.query}
+                </p>
+                <p>
+                  <strong>Results Found:</strong>{" "}
+                  {selectedTripPlaces.places.count}
+                </p>
               </div>
+
+              {selectedTripPlaces.places.places.length === 0 ? (
+                <p>No places found for this destination.</p>
+              ) : (
+                <div className="places-list">
+                  {selectedTripPlaces.places.places.map((place) => (
+                    <article key={place.id} className="place-card">
+                      <h3>{place.name}</h3>
+
+                      <p>
+                        <strong>Address:</strong> {place.address}
+                      </p>
+
+                      <p>
+                        <strong>Rating:</strong>{" "}
+                        {place.rating
+                          ? `${place.rating} (${place.userRatingCount} reviews)`
+                          : "Not available"}
+                      </p>
+
+                      <p>
+                        <strong>Type:</strong>{" "}
+                        {place.primaryType || "Not specified"}
+                      </p>
+
+                      {place.googleMapsUri && (
+                        <a
+                          href={place.googleMapsUri}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="external-link"
+                        >
+                          Open in Google Maps
+                        </a>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </>

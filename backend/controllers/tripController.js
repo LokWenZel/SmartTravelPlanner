@@ -1,3 +1,5 @@
+const { searchPlacesForDestination } = require("../services/placesService");
+
 const { getWeatherForDestination } = require("../services/weatherService");
 
 const Trip = require("../models/Trip");
@@ -192,12 +194,46 @@ const getTripCurrency = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/trips/:id/places?category=attractions
+ * Retrieve a saved trip and find related places using Google Places API.
+ */
+const getTripPlaces = asyncHandler(async (req, res) => {
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
+
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found.");
+  }
+
+  const category = req.query.category || "attractions";
+
+  const places = await searchPlacesForDestination({
+    destination: trip.destination,
+    country: trip.country,
+    category,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Trip places retrieved successfully.",
+    data: {
+      trip,
+      places,
+    },
+  });
+});
+
 module.exports = {
   createTrip,
   getTrips,
   getTripById,
   getTripWeather,
   getTripCurrency,
+  getTripPlaces,
   updateTrip,
   deleteTrip,
 };
