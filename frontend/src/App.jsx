@@ -546,7 +546,7 @@ function App() {
                   </label>
 
                   <label>
-                    Places
+                    Type of Places
                     <select
                       value={placeCategory}
                       onChange={(event) => setPlaceCategory(event.target.value)}
