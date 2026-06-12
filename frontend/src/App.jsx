@@ -671,7 +671,7 @@ function App() {
                         >
                           {currencyLoadingTripId === trip._id
                             ? "Converting..."
-                            : "Convert Budget"}
+                            : "Convert Currency"}
                         </button>
 
                         <button
