@@ -5,6 +5,7 @@ import { getCurrentUser, loginUser, registerUser } from "./services/authApi";
 
 import {
   createTrip,
+  updateTrip,
   deleteTrip,
   getTripCurrency,
   getTripInsights,
@@ -42,6 +43,7 @@ function App() {
   );
 
   const [formData, setFormData] = useState(initialTripForm);
+  const [editingTripId, setEditingTripId] = useState(null);
   const [trips, setTrips] = useState([]);
   const [selectedTripWeather, setSelectedTripWeather] = useState(null);
   const [selectedTripCurrency, setSelectedTripCurrency] = useState(null);
@@ -166,12 +168,47 @@ function App() {
     setToken("");
     setCurrentUser(null);
     setTrips([]);
+    setEditingTripId(null);
     setSelectedTripWeather(null);
     setSelectedTripCurrency(null);
     setSelectedTripPlaces(null);
     setSelectedTripInsights(null);
     setFormData(initialTripForm);
     setSuccessMessage("You have logged out.");
+  };
+
+  const handleStartEditTrip = (trip) => {
+    setEditingTripId(trip._id);
+
+    setFormData({
+      destination: trip.destination || "",
+      country: trip.country || "",
+      countryCode: trip.countryCode || "",
+      startDate: trip.startDate ? trip.startDate.slice(0, 10) : "",
+      endDate: trip.endDate ? trip.endDate.slice(0, 10) : "",
+      notes: trip.notes || "",
+      preferences: Array.isArray(trip.preferences)
+        ? trip.preferences.join(", ")
+        : "",
+      budget: trip.budget || "",
+      currency: trip.currency || "MYR",
+    });
+
+    setSelectedTripWeather(null);
+    setSelectedTripCurrency(null);
+    setSelectedTripPlaces(null);
+    setSelectedTripInsights(null);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const handleCancelEditTrip = () => {
+    setEditingTripId(null);
+    setFormData(initialTripForm);
+    clearMessages();
   };
 
   const handleCreateTrip = async (event) => {
@@ -195,10 +232,23 @@ function App() {
         currency: formData.currency,
       };
 
-      await createTrip(tripData, token);
+      if (editingTripId) {
+        await updateTrip(editingTripId, tripData, token);
+
+        setSuccessMessage("Trip updated successfully.");
+        setEditingTripId(null);
+      } else {
+        await createTrip(tripData, token);
+
+        setSuccessMessage("Trip created successfully.");
+      }
 
       setFormData(initialTripForm);
-      setSuccessMessage("Trip created successfully.");
+      setSelectedTripWeather(null);
+      setSelectedTripCurrency(null);
+      setSelectedTripPlaces(null);
+      setSelectedTripInsights(null);
+
       await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
@@ -413,8 +463,7 @@ function App() {
         <>
           <section className="layout-grid">
             <form className="card trip-form" onSubmit={handleCreateTrip}>
-              <h2>Add a new trip</h2>
-
+              <h2>{editingTripId ? "Edit trip" : "Add a new trip"}</h2>
               <label>
                 Destination
                 <input
@@ -522,9 +571,21 @@ function App() {
                 </label>
               </div>
 
-              <button type="submit" className="primary-button">
-                Create Trip
-              </button>
+              <div className="form-actions">
+                <button type="submit" className="primary-button">
+                  {editingTripId ? "Update Trip" : "Create Trip"}
+                </button>
+
+                {editingTripId && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={handleCancelEditTrip}
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
             </form>
 
             <section className="card">
@@ -633,6 +694,14 @@ function App() {
                           {insightsLoadingTripId === trip._id
                             ? "Loading insights..."
                             : "View Full Insights"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => handleStartEditTrip(trip)}
+                        >
+                          Edit
                         </button>
 
                         <button

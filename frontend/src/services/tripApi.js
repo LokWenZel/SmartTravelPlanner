@@ -104,3 +104,13 @@ export const getTripInsights = async (
 
   return handleResponse(response);
 };
+
+export const updateTrip = async (tripId, tripData, token) => {
+  const response = await fetch(`${API_BASE_URL}/trips/${tripId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(tripData),
+  });
+
+  return handleResponse(response);
+};
