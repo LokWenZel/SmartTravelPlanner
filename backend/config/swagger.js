@@ -5,7 +5,7 @@ const swaggerDocument = {
     title: "Smart Travel Planner API",
     version: "1.0.0",
     description:
-      "REST API for managing user travel records and combining saved trip data with real-time OpenWeather data.",
+      "REST API for managing user travel records and combining saved trip data with real-time data from OpenWeatherMap, ExchangeRate API, and Google Places API.",
   },
 
   servers: [
@@ -30,7 +30,20 @@ const swaggerDocument = {
     },
     {
       name: "Weather",
-      description: "Third-party OpenWeather integration",
+      description: "Third-party OpenWeatherMap integration",
+    },
+    {
+      name: "Currency",
+      description: "Third-party ExchangeRate API integration",
+    },
+    {
+      name: "Places",
+      description: "Third-party Google Places API integration",
+    },
+    {
+      name: "Insights",
+      description:
+        "Combined trip insights using weather, currency, and places data",
     },
   ],
 
@@ -421,6 +434,187 @@ const swaggerDocument = {
           },
           502: {
             description: "Weather service error",
+          },
+        },
+      },
+    },
+
+    "/trips/{id}/currency": {
+      get: {
+        tags: ["Currency"],
+        summary: "Convert a trip budget into another currency",
+        description:
+          "Retrieves a saved trip from MongoDB and converts its budget using live exchange rate data from ExchangeRate API.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "MongoDB trip ID",
+            schema: {
+              type: "string",
+            },
+          },
+          {
+            name: "to",
+            in: "query",
+            required: true,
+            description: "Target three-letter currency code",
+            schema: {
+              type: "string",
+              example: "JPY",
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Trip budget converted successfully",
+          },
+          400: {
+            description: "Invalid or missing target currency",
+          },
+          401: {
+            description: "Unauthorized",
+          },
+          404: {
+            description: "Trip not found",
+          },
+          502: {
+            description: "Currency service error",
+          },
+        },
+      },
+    },
+
+    "/trips/{id}/places": {
+      get: {
+        tags: ["Places"],
+        summary: "Find places near a trip destination",
+        description:
+          "Retrieves a saved trip from MongoDB and searches for related places using Google Places API. Supported categories include attractions, restaurants, cafes, museums, and hotels.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "MongoDB trip ID",
+            schema: {
+              type: "string",
+            },
+          },
+          {
+            name: "category",
+            in: "query",
+            required: false,
+            description: "Type of places to search for",
+            schema: {
+              type: "string",
+              enum: [
+                "attractions",
+                "restaurants",
+                "cafes",
+                "museums",
+                "hotels",
+              ],
+              example: "attractions",
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Trip places retrieved successfully",
+          },
+          400: {
+            description: "Invalid Google Places request",
+          },
+          401: {
+            description: "Unauthorized",
+          },
+          404: {
+            description: "Trip not found",
+          },
+          429: {
+            description: "Google Places rate limit reached",
+          },
+          502: {
+            description: "Google Places service error",
+          },
+        },
+      },
+    },
+
+    "/trips/{id}/insights": {
+      get: {
+        tags: ["Insights"],
+        summary: "Get full trip insights",
+        description:
+          "Combines one saved trip with weather, currency conversion, and Google Places results. This endpoint demonstrates integration between the self-developed API and multiple third-party APIs.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "MongoDB trip ID",
+            schema: {
+              type: "string",
+            },
+          },
+          {
+            name: "to",
+            in: "query",
+            required: false,
+            description: "Target currency for budget conversion",
+            schema: {
+              type: "string",
+              example: "JPY",
+            },
+          },
+          {
+            name: "category",
+            in: "query",
+            required: false,
+            description: "Google Places category",
+            schema: {
+              type: "string",
+              enum: [
+                "attractions",
+                "restaurants",
+                "cafes",
+                "museums",
+                "hotels",
+              ],
+              example: "attractions",
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description:
+              "Trip insights retrieved successfully. May include partial API errors if one external service fails.",
+          },
+          400: {
+            description: "Invalid request",
+          },
+          401: {
+            description: "Unauthorized",
+          },
+          404: {
+            description: "Trip not found",
           },
         },
       },
