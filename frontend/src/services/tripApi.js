@@ -84,3 +84,23 @@ export const getTripPlaces = async (tripId, category, token) => {
 
   return handleResponse(response);
 };
+
+export const getTripInsights = async (
+  tripId,
+  targetCurrency,
+  category,
+  token,
+) => {
+  const response = await fetch(
+    `${API_BASE_URL}/trips/${tripId}/insights?to=${encodeURIComponent(
+      targetCurrency,
+    )}&category=${encodeURIComponent(category)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return handleResponse(response);
+};

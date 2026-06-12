@@ -227,6 +227,91 @@ const getTripPlaces = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/trips/:id/insights?to=JPY&category=attractions
+ * Retrieve a saved trip and combine it with weather, currency, and places data.
+ */
+const getTripInsights = asyncHandler(async (req, res) => {
+  const trip = await Trip.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
+
+  if (!trip) {
+    res.status(404);
+    throw new Error("Trip not found.");
+  }
+
+  const targetCurrency = (req.query.to || trip.currency || "MYR").toUpperCase();
+  const category = req.query.category || "attractions";
+
+  const [weatherResult, currencyResult, placesResult] =
+    await Promise.allSettled([
+      getWeatherForDestination({
+        destination: trip.destination,
+        countryCode: trip.countryCode,
+      }),
+
+      convertCurrency({
+        fromCurrency: trip.currency || "MYR",
+        toCurrency: targetCurrency,
+        amount: trip.budget || 0,
+      }),
+
+      searchPlacesForDestination({
+        destination: trip.destination,
+        country: trip.country,
+        category,
+      }),
+    ]);
+
+  const errors = [];
+
+  const weather =
+    weatherResult.status === "fulfilled" ? weatherResult.value : null;
+
+  if (weatherResult.status === "rejected") {
+    errors.push({
+      source: "weather",
+      message: weatherResult.reason.message,
+    });
+  }
+
+  const currency =
+    currencyResult.status === "fulfilled" ? currencyResult.value : null;
+
+  if (currencyResult.status === "rejected") {
+    errors.push({
+      source: "currency",
+      message: currencyResult.reason.message,
+    });
+  }
+
+  const places =
+    placesResult.status === "fulfilled" ? placesResult.value : null;
+
+  if (placesResult.status === "rejected") {
+    errors.push({
+      source: "places",
+      message: placesResult.reason.message,
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Trip insights retrieved successfully.",
+    data: {
+      trip,
+      insights: {
+        weather,
+        currency,
+        places,
+      },
+      errors,
+    },
+  });
+});
+
 module.exports = {
   createTrip,
   getTrips,
@@ -234,6 +319,7 @@ module.exports = {
   getTripWeather,
   getTripCurrency,
   getTripPlaces,
+  getTripInsights,
   updateTrip,
   deleteTrip,
 };
