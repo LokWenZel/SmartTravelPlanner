@@ -340,3 +340,29 @@ button:disabled {
 .external-link:hover {
   text-decoration: underline;
 }
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.insight-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.insight-card h3 {
+  margin-top: 0;
+}
+
+.insight-card p {
+  line-height: 1.5;
+}
+
+.compact-place-list {
+  padding-left: 20px;
+  line-height: 1.7;
+}

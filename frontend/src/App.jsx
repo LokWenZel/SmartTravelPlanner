@@ -7,6 +7,7 @@ import {
   createTrip,
   deleteTrip,
   getTripCurrency,
+  getTripInsights,
   getTripPlaces,
   getTripWeather,
   getTrips,
@@ -45,12 +46,14 @@ function App() {
   const [selectedTripWeather, setSelectedTripWeather] = useState(null);
   const [selectedTripCurrency, setSelectedTripCurrency] = useState(null);
   const [selectedTripPlaces, setSelectedTripPlaces] = useState(null);
+  const [selectedTripInsights, setSelectedTripInsights] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [weatherLoadingTripId, setWeatherLoadingTripId] = useState(null);
   const [currencyLoadingTripId, setCurrencyLoadingTripId] = useState(null);
   const [placesLoadingTripId, setPlacesLoadingTripId] = useState(null);
+  const [insightsLoadingTripId, setInsightsLoadingTripId] = useState(null);
   const [targetCurrency, setTargetCurrency] = useState("JPY");
   const [placeCategory, setPlaceCategory] = useState("attractions");
 
@@ -166,6 +169,7 @@ function App() {
     setSelectedTripWeather(null);
     setSelectedTripCurrency(null);
     setSelectedTripPlaces(null);
+    setSelectedTripInsights(null);
     setFormData(initialTripForm);
     setSuccessMessage("You have logged out.");
   };
@@ -219,6 +223,7 @@ function App() {
       setSelectedTripWeather(null);
       setSelectedTripCurrency(null);
       setSelectedTripPlaces(null);
+      setSelectedTripInsights(null);
       await loadTrips(token);
     } catch (error) {
       setErrorMessage(error.message);
@@ -270,6 +275,26 @@ function App() {
     }
   };
 
+  const handleViewInsights = async (tripId) => {
+    try {
+      clearMessages();
+      setInsightsLoadingTripId(tripId);
+
+      const response = await getTripInsights(
+        tripId,
+        targetCurrency,
+        placeCategory,
+        token,
+      );
+
+      setSelectedTripInsights(response.data);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setInsightsLoadingTripId(null);
+    }
+  };
+
   if (authLoading && token && !currentUser) {
     return (
       <main className="app-container">
@@ -288,7 +313,7 @@ function App() {
           <h1>Plan trips with Smart Travel Planner</h1>
           <p>
             Create travel records, store them in MongoDB, and combine each saved
-            trip with real-time weather data from OpenWeather.
+            trip with real-time APIs.
           </p>
         </div>
 
@@ -397,7 +422,7 @@ function App() {
                   name="destination"
                   value={formData.destination}
                   onChange={handleTripInputChange}
-                  placeholder="George Town"
+                  placeholder="Enter your trip destination, e.g. Tokyo"
                   required
                 />
               </label>
@@ -409,7 +434,7 @@ function App() {
                   name="country"
                   value={formData.country}
                   onChange={handleTripInputChange}
-                  placeholder="Malaysia"
+                  placeholder="Enter the country, e.g. Japan"
                   required
                 />
               </label>
@@ -421,7 +446,7 @@ function App() {
                   name="countryCode"
                   value={formData.countryCode}
                   onChange={handleTripInputChange}
-                  placeholder="MY"
+                  placeholder="Enter the country code, e.g. JP"
                   maxLength="2"
                 />
               </label>
@@ -456,7 +481,7 @@ function App() {
                   name="notes"
                   value={formData.notes}
                   onChange={handleTripInputChange}
-                  placeholder="Visit heritage attractions and try local food."
+                  placeholder="Optional notes about your trip..."
                   rows="4"
                 />
               </label>
@@ -468,7 +493,7 @@ function App() {
                   name="preferences"
                   value={formData.preferences}
                   onChange={handleTripInputChange}
-                  placeholder="food, culture, museums"
+                  placeholder=""
                 />
               </label>
 
@@ -481,7 +506,7 @@ function App() {
                     value={formData.budget}
                     onChange={handleTripInputChange}
                     min="0"
-                    placeholder="1200"
+                    placeholder="Enter your budget for the trip"
                   />
                 </label>
 
@@ -597,6 +622,17 @@ function App() {
                           {placesLoadingTripId === trip._id
                             ? "Finding places..."
                             : "Find Nearby Attractions"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => handleViewInsights(trip._id)}
+                          disabled={insightsLoadingTripId === trip._id}
+                        >
+                          {insightsLoadingTripId === trip._id
+                            ? "Loading insights..."
+                            : "View Full Insights"}
                         </button>
 
                         <button
@@ -770,6 +806,134 @@ function App() {
                   ))}
                 </div>
               )}
+            </section>
+          )}
+
+          {selectedTripInsights && (
+            <section className="card weather-section">
+              <h2>Full Trip Insights</h2>
+
+              <div className="places-summary">
+                <p>
+                  <strong>Destination:</strong>{" "}
+                  {selectedTripInsights.trip.destination},{" "}
+                  {selectedTripInsights.trip.country}
+                </p>
+                <p>
+                  <strong>Budget:</strong> {selectedTripInsights.trip.budget}{" "}
+                  {selectedTripInsights.trip.currency}
+                </p>
+                <p>
+                  <strong>Selected Currency:</strong> {targetCurrency}
+                </p>
+                <p>
+                  <strong>Selected Places Category:</strong> {placeCategory}
+                </p>
+              </div>
+
+              {selectedTripInsights.errors.length > 0 && (
+                <div className="alert alert-error">
+                  <strong>Partial API errors:</strong>
+                  <ul>
+                    {selectedTripInsights.errors.map((error) => (
+                      <li key={error.source}>
+                        {error.source}: {error.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="insights-grid">
+                <section className="insight-card">
+                  <h3>Weather</h3>
+
+                  {selectedTripInsights.insights.weather ? (
+                    <>
+                      <p>
+                        <strong>Condition:</strong>{" "}
+                        {
+                          selectedTripInsights.insights.weather.current
+                            .description
+                        }
+                      </p>
+                      <p>
+                        <strong>Temperature:</strong>{" "}
+                        {
+                          selectedTripInsights.insights.weather.current
+                            .temperatureCelsius
+                        }
+                        °C
+                      </p>
+                      <p>
+                        <strong>Humidity:</strong>{" "}
+                        {
+                          selectedTripInsights.insights.weather.current
+                            .humidityPercent
+                        }
+                        %
+                      </p>
+                    </>
+                  ) : (
+                    <p>Weather data unavailable.</p>
+                  )}
+                </section>
+
+                <section className="insight-card">
+                  <h3>Currency</h3>
+
+                  {selectedTripInsights.insights.currency ? (
+                    <>
+                      <p>
+                        <strong>Original:</strong>{" "}
+                        {selectedTripInsights.insights.currency.originalAmount}{" "}
+                        {selectedTripInsights.insights.currency.from}
+                      </p>
+                      <p>
+                        <strong>Converted:</strong>{" "}
+                        {selectedTripInsights.insights.currency.convertedAmount}{" "}
+                        {selectedTripInsights.insights.currency.to}
+                      </p>
+                      <p>
+                        <strong>Rate:</strong>{" "}
+                        {selectedTripInsights.insights.currency.conversionRate}
+                      </p>
+                    </>
+                  ) : (
+                    <p>Currency data unavailable.</p>
+                  )}
+                </section>
+
+                <section className="insight-card">
+                  <h3>Places</h3>
+
+                  {selectedTripInsights.insights.places ? (
+                    <>
+                      <p>
+                        <strong>Query:</strong>{" "}
+                        {selectedTripInsights.insights.places.query}
+                      </p>
+                      <p>
+                        <strong>Results:</strong>{" "}
+                        {selectedTripInsights.insights.places.count}
+                      </p>
+
+                      <ul className="compact-place-list">
+                        {selectedTripInsights.insights.places.places
+                          .slice(0, 5)
+                          .map((place) => (
+                            <li key={place.id}>
+                              <strong>{place.name}</strong>
+                              {place.rating ? ` — ${place.rating}⭐` : ""}
+                            </li>
+                          ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p>Places data unavailable.</p>
+                  )}
+                </section>
+              </div>
             </section>
           )}
         </>

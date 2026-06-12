@@ -7,6 +7,7 @@ const {
   getTripWeather,
   getTripCurrency,
   getTripPlaces,
+  getTripInsights,
   updateTrip,
   deleteTrip,
 } = require("../controllers/tripController");
@@ -22,6 +23,7 @@ router.route("/").post(createTrip).get(getTrips);
 router.get("/:id/weather", getTripWeather);
 router.get("/:id/currency", getTripCurrency);
 router.get("/:id/places", getTripPlaces);
+router.get("/:id/insights", getTripInsights);
 
 router.route("/:id").get(getTripById).put(updateTrip).delete(deleteTrip);
 
